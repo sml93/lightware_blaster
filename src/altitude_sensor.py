@@ -1,68 +1,52 @@
 import sys
 sys.path.insert(0, '../..')
-
+import time
 import rospy
 import numpy as np
 
 from serial import Serial as device
-from std_msgs.msg import String, Float64
-# from altitude_sensor.msg import sensor_data
-from panda3d.core import StringStream
+from std_msgs.msg import String, Float32
 
-REPLY_SIZE = 20
-TIMEOUT = 1000
-PORT = 'loop://'
+TIMEOUT = 0.1
+sensor_frequency = 10
 
-serial_port = "/dev/ttyUSB0"
-msg_shift = 0
-alt_msg_begin = msg_shift
-alt_msg_end = msg_shift+6
-volt_msg_begin = msg_shift + 8
-volt_msg_end = msg_shift + 15
+serial_port_name = "/dev/ttyUSB0"
+serial_port_baudrate = 115200
+port = device(serial_port_name, serial_port_baudrate, timeout=TIMEOUT)
 
-rep = np.array(range(0,21,1))
-reply = chr(rep[REPLY_SIZE])
+# Initialising serial port handshake
+port.write('wwww\r\n')
+port.readline()
 
-sensor_frequency = 60   # sensor freq in hz
+# Getting product information
+port.write('?\r\n')
+productInfo = port.readline()
+print('Product information: ' + productInfo)
+
 
 def talker():
-  pub = rospy.Publisher('standoff', Float64, queue_size=10)
+  pub = rospy.Publisher('standoff', Float32, queue_size=10)
   rospy.init_node('so_sensor', anonymous=True)
   r = rospy.Rate(sensor_frequency)
-  msg = Float64()
+  msg = Float32()
 
   while not rospy.is_shutdown():
-
     try: 
-      device.open(PORT)
+      port.write('LD\r\n')
+      distanceStr = port.readline()
+      # Convert the distance string response into a number
+      distanceCM = float(distanceStr)
+      msg.data = round(distanceCM,3)
+
+      # Do what you want with the distance information here
+      rospy.loginfo('standoff: {0:.2f} m'.format(distanceCM))
+      pub.publish(msg)
+
+      # Wait for 50ms before the next reading is taken
+      time.sleep(0.05)
     except rospy.ROSException as e:
       print("Interrupted")
       pass
-
-    for x in range(alt_msg_begin,alt_msg_end):
-      ss1 = reply[x]
-    standoff = ss1
-    msg.data = standoff
-    # msg.altitude = standoff
-    # msg.voltage = 0
-    # msg.header.frame_id="standoff sensor"
-      
-    rospy.loginfo(msg)
-    pub.publish(msg)
-
-    if (reply[msg_shift+7]!='m'):
-      msg_shift = msg_shift + msg_shift
-
-      volt_msg_begin = msg_shift+10
-      volt_msg_end = msg_shift+14
-      alt_msg_begin = msg_shift
-      alt_msg_end = msg_shift+5
-
-      if (msg_shift >= 20): msg_shift = msg_shift - 20
-      if (volt_msg_begin>=20): volt_msg_begin = volt_msg_begin - 20
-      if (volt_msg_end>=20): volt_msg_end = volt_msg_end - 20 
-      if (alt_msg_begin>=20): alt_msg_begin = alt_msg_begin - 20
-      if (alt_msg_end>=20): alt_msg_end = alt_msg_end - 20
     
     r.sleep()
 
