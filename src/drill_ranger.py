@@ -26,8 +26,8 @@ print('Product information: ' + productInfo.decode('utf-8'))	## decodes the prod
 
 
 def talker():
-  pub = rospy.Publisher('standoff', Float32, queue_size=10)
-  rospy.init_node('so_sensor', anonymous=True)
+  pub = rospy.Publisher('ranger', Float32, queue_size=10)
+  rospy.init_node('range_sensor', anonymous=True)
   r = rospy.Rate(sensor_frequency)
   msg = Float32()
 
@@ -40,12 +40,12 @@ def talker():
       msg.data = round(distanceCM,3)
 
       # Do what you want with the distance information here
-      rospy.loginfo('standoff: {0:.2f} m'.format(distanceCM))
+      rospy.loginfo('ranger: {0:.2f} m'.format(distanceCM))
       pub.publish(msg)
 
       # Wait for 50ms before the next reading is taken
-      time.sleep(0.05)
-      # time.sleep(1)
+      # time.sleep(0.05)
+      time.sleep(1)
     except rospy.ROSException as e:
       print("Interrupted")
       pass
